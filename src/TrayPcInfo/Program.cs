@@ -467,14 +467,7 @@ namespace TrayPcInfo
                         var uni4 = ipProps.UnicastAddresses
                             .Where(u => u.Address.AddressFamily == AddressFamily.InterNetwork).ToList();
                         string ipv4 = uni4.Count > 0
-                            ? string.Join(", ",
-                                uni4.Select(u =>
-                                {
-                                    int? prefixLength = GetPrefixLengthSafe(u);
-                                    return prefixLength.HasValue
-                                        ? u.Address + "/" + PrefixToMask(prefixLength.Value)
-                                        : u.Address.ToString();
-                                }).ToArray())
+                            ? string.Join(", ", uni4.Select(FormatIpv4WithMask).ToArray())
                             : "N/D";
 
                         var gw4Addrs = ipProps.GatewayAddresses != null
@@ -563,36 +556,19 @@ namespace TrayPcInfo
             }
         }
 
-        private static string PrefixToMask(int prefixLength)
+        private static string FormatIpv4WithMask(UnicastIPAddressInformation info)
         {
             try
             {
-                if (prefixLength < 0 || prefixLength > 32)
-                {
-                    LogBuffer.Add("RETE", "Prefix length non valido: " + prefixLength + ".");
-                    prefixLength = Math.Max(0, Math.Min(32, prefixLength));
-                }
-                uint mask = prefixLength == 0 ? 0u : uint.MaxValue << (32 - prefixLength);
-                var bytes = BitConverter.GetBytes(mask).Reverse().ToArray();
-                return string.Join(".", bytes.Select(b => b.ToString()).ToArray());
+                var mask = info.IPv4Mask;
+                return mask != null
+                    ? info.Address + "/" + mask
+                    : info.Address.ToString();
             }
             catch (Exception ex)
             {
-                LogBuffer.Add("RETE", "Errore in PrefixToMask.", ex);
-                return "0.0.0.0";
-            }
-        }
-
-        private static int? GetPrefixLengthSafe(UnicastIPAddressInformation info)
-        {
-            try
-            {
-                return info.PrefixLength;
-            }
-            catch (Exception ex)
-            {
-                LogBuffer.Add("RETE", "Errore lettura prefix length.", ex);
-                return null;
+                LogBuffer.Add("RETE", "Errore lettura maschera IPv4.", ex);
+                return info.Address.ToString();
             }
         }
 
