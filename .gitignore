@@ -1,0 +1,41 @@
+# Build output (keep only .exe)
+build/*
+!build/*.exe
+!build/.gitkeep
+
+# Temporary build folder
+temp_build/
+
+# Temporary files
+*.pdb
+*.exe.config
+*.cache
+*.suo
+*.user
+
+# Visual Studio
+.vs/
+*.vsidx
+*.vspscc
+*.vssscc
+*.vssettings
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Security files (never commit!)
+*.pfx
+*.p12
+*.cer
+*.key
+*_private.key
+certificate*
+*.snk
+
+# IDE folders
+.vscode/
+.idea/
+*.code-workspace
