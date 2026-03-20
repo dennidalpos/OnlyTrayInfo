@@ -1,0 +1,20 @@
+{
+  "treeview": [
+    ".gitattributes",
+    ".gitignore",
+    "AGENTS.md",
+    "LICENSE",
+    "PROJECT_SPEC.md",
+    "PROJECT_STATUS.json",
+    "README.md",
+    "scripts/build.ps1",
+    "scripts/clean.ps1",
+    "scripts/verify.ps1",
+    "src/OnlyTrayInfo/OnlyTrayInfo.csproj",
+    "src/OnlyTrayInfo/Program.cs",
+    "src/OnlyTrayInfo/Properties/AssemblyInfo.cs",
+    "src/OnlyTrayInfo/app.manifest"
+  ],
+  "files_big": [],
+  "tasks": []
+}

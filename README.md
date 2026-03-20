@@ -1,6 +1,6 @@
-# TrayPcInfo
+# OnlyTrayInfo
 
-TrayPcInfo è una piccola applicazione WinForms che vive nell’area di notifica di Windows e mostra informazioni rapide sul PC (rete, stampanti, utente, ecc.). L’interfaccia principale offre un riepilogo dettagliato e alcune azioni rapide come l’avvio di **Assistenza rapida** e l’impostazione della stampante predefinita.
+OnlyTrayInfo e' una piccola applicazione WinForms che vive nell'area di notifica di Windows e mostra informazioni rapide sul PC (rete, stampanti, utente, ecc.). L'interfaccia principale offre un riepilogo dettagliato e alcune azioni rapide come l'avvio di **Assistenza rapida** e l'impostazione della stampante predefinita.
 
 ## Funzionalità principali
 
@@ -20,34 +20,77 @@ TrayPcInfo è una piccola applicazione WinForms che vive nell’area di notifica
 - **.NET Framework 4.0** (target del progetto).
 - Accesso alle API di rete e stampa di Windows (per la lettura di NIC e stampanti).
 
+## Setup
+
+1. Clona il repository su una macchina Windows.
+2. Apri PowerShell nella root del repository.
+3. Usa gli script in `scripts/` oppure Visual Studio/MSBuild per compilare il progetto.
+
 ## Struttura del progetto
 
 ```
 src/
-  TrayPcInfo/
+  OnlyTrayInfo/
     Program.cs         # UI, logica principali e raccolta info di sistema
     Properties/
       AssemblyInfo.cs  # metadati assembly
-    TrayPcInfo.csproj  # progetto .NET Framework 4.0
+    OnlyTrayInfo.csproj  # progetto .NET Framework 4.0
 ```
 
 ## Build
 
-Il progetto è un’app WinForms .NET Framework. Puoi compilarlo con:
+Il workflow del repository usa come output comune la cartella root `build/`:
+
+- `build/Debug/` per build Debug eseguite tramite progetto/MSBuild
+- `build/Release/` per build Release
+- `tmp/` per file temporanei di compilazione rimossi dagli script
+
+### Script PowerShell del repository
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+```
+
+Lo script genera `build\Release\OnlyTrayInfo.exe` e aggiorna la versione informativa con timestamp.
+
+Per pulire gli output generati:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\clean.ps1
+```
+
+Per eseguire una verifica minima ripetibile:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
+```
+
+Lo script esegue la build e verifica che `build\Release\OnlyTrayInfo.exe` esista
+e riporti metadata coerenti con il nome prodotto.
 
 ### Visual Studio
-1. Apri `src/TrayPcInfo/TrayPcInfo.csproj`.
+1. Apri `src/OnlyTrayInfo/OnlyTrayInfo.csproj`.
 2. Seleziona **Build > Build Solution**.
+3. Recupera gli output in `build\Debug\` o `build\Release\` in base alla configurazione scelta.
 
 ### MSBuild (Developer Command Prompt)
 ```bat
-cd src\TrayPcInfo
-msbuild TrayPcInfo.csproj /p:Configuration=Release
+cd src\OnlyTrayInfo
+msbuild OnlyTrayInfo.csproj /p:Configuration=Release
 ```
+
+## Test
+
+Non e' presente una suite di test automatizzati. La verifica ripetibile disponibile e' lo smoke check:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
+```
+
+Lo script esegue `clean`, `build` e controlla che l'eseguibile finale esponga metadata coerenti.
 
 ## Esecuzione
 
-1. Avvia `TrayPcInfo.exe` generato in `bin\Release\`.
+1. Avvia `OnlyTrayInfo.exe` generato in `build\Release\`.
 2. L’app parte **minimizzata nel tray**.
 3. Doppio click o menu contestuale ➜ **Apri** per mostrare la finestra.
 4. **Esci** dal menu tray per chiudere l’app.
@@ -87,6 +130,36 @@ L’app prova prima il protocollo `ms-quick-assist:` e poi cerca `quickassist.ex
 
 Se non è presente, installa/abilita **Assistenza rapida** in Windows.
 
+## Clean
+
+Per riportare il repository a uno stato sorgente-only compatibile con i file versionati:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\clean.ps1
+```
+
+Lo script rimuove `build/`, `tmp/` e gli eventuali artefatti `bin/` e `obj/`.
+
+## Publish
+
+Il repository non definisce al momento uno script o un flusso separato di packaging/publish.
+
+## Struttura essenziale
+
+```text
+/
+├── scripts/
+│   ├── build.ps1
+│   ├── clean.ps1
+│   └── verify.ps1
+└── src/
+    └── OnlyTrayInfo/
+        ├── OnlyTrayInfo.csproj
+        ├── Program.cs
+        ├── app.manifest
+        └── Properties/AssemblyInfo.cs
+```
+
 ## Note
 
 - L’applicazione usa un **log interno in memoria** per gli errori più comuni, visibile nella sezione “LOG ERRORI”.
@@ -95,3 +168,15 @@ Se non è presente, installa/abilita **Assistenza rapida** in Windows.
 ## Licenza
 
 Vedi [LICENSE](LICENSE).
+
+## Copyright
+
+Copyright (c) 2026 Danny Perondi. All rights reserved.
+
+Questo progetto e' proprietario e confidenziale. La consultazione del
+repository e' consentita solo per visione e valutazione da parte di soggetti
+autorizzati.
+
+Sono vietati senza preventiva autorizzazione scritta di Danny Perondi il
+riutilizzo, la copia, la modifica, la distribuzione, la sublicenza e qualsiasi
+uso commerciale, totale o parziale.

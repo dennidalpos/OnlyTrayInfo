@@ -1,8 +1,16 @@
+/*
+ * OnlyTrayInfo
+ * Copyright (c) 2026 Danny Perondi. All rights reserved.
+ * Proprietary and confidential.
+ * Unauthorized copying, modification, distribution, disclosure, or use is prohibited.
+ */
+
 using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -12,7 +20,7 @@ using System.Drawing.Printing;
 using System.Reflection;
 using System.Collections.Generic;
 
-namespace TrayPcInfo
+namespace OnlyTrayInfo
 {
     internal static class Program
     {
@@ -84,6 +92,20 @@ namespace TrayPcInfo
 
     public class InfoForm : Form
     {
+        private sealed class PrimaryIpCandidate
+        {
+            public string InterfaceId { get; private set; }
+            public string AddressText { get; private set; }
+            public int Score { get; private set; }
+
+            public PrimaryIpCandidate(string interfaceId, string addressText, int score)
+            {
+                InterfaceId = interfaceId;
+                AddressText = addressText;
+                Score = score;
+            }
+        }
+
         private readonly NotifyIcon _tray;
         private readonly ToolStrip _toolbar;
         private readonly ToolStripButton _btnQuickAssist;
@@ -118,7 +140,7 @@ namespace TrayPcInfo
 
         public InfoForm()
         {
-            Text = "TrayPcInfo";
+            Text = "OnlyTrayInfo";
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(820, 560);
             Icon = SystemIcons.Information;
@@ -220,11 +242,11 @@ namespace TrayPcInfo
             Controls.Add(_status);
 
             _refreshTimer = new Timer { Interval = 15000 };
-            _refreshTimer.Tick += (s, e) => _tray.Text = BuildTrayText();
+            _refreshTimer.Tick += (s, e) => SafeExec("AUTO", RefreshTimedData);
             _refreshTimer.Start();
 
             Load += (s, e) => { SafeExec("INIT", PopulatePrinters); SafeExec("INIT", RefreshAll); };
-            Activated += (s, e) => { SafeExec("INIT", RefreshAll); };
+            Activated += (s, e) => { SafeExec("INIT", PopulatePrinters); SafeExec("INIT", RefreshAll); };
             FormClosing += OnFormClosingHideToTray;
         }
 
@@ -299,6 +321,17 @@ namespace TrayPcInfo
         {
             if (string.IsNullOrEmpty(s)) return s;
             return s.Length <= max ? s : s.Substring(0, max);
+        }
+
+        private void RefreshTimedData()
+        {
+            _tray.Text = BuildTrayText();
+
+            if (!Visible || WindowState == FormWindowState.Minimized)
+                return;
+
+            PopulatePrinters();
+            RefreshAll();
         }
 
         private string BuildTrayText()
@@ -403,6 +436,7 @@ namespace TrayPcInfo
         private static string BuildInfo()
         {
             var sb = new StringBuilder();
+            var primaryCandidate = SelectPrimaryIPv4Candidate();
             string machine = Environment.MachineName;
             string domainUser;
             try
@@ -479,8 +513,11 @@ namespace TrayPcInfo
                             ? ipProps.DnsAddresses.Where(a => a.AddressFamily == AddressFamily.InterNetwork)
                                 .Select(a => a.ToString()).ToArray()
                             : new string[0];
+                        string primaryTag = primaryCandidate != null && string.Equals(primaryCandidate.InterfaceId, nic.Id, StringComparison.OrdinalIgnoreCase)
+                            ? " [primaria]"
+                            : "";
 
-                        sb.AppendLine("NIC: " + nicName + " - " + desc);
+                        sb.AppendLine("NIC: " + nicName + primaryTag + " - " + desc);
                         sb.AppendLine("  Stato: " + status);
                         sb.AppendLine("  Velocità: " + speed);
                         sb.AppendLine("  DNS suffix: " + suffix);
@@ -574,6 +611,12 @@ namespace TrayPcInfo
 
         private static string GetPrimaryIPv4()
         {
+            var candidate = SelectPrimaryIPv4Candidate();
+            return candidate != null ? candidate.AddressText : null;
+        }
+
+        private static PrimaryIpCandidate SelectPrimaryIPv4Candidate()
+        {
             try
             {
                 var nics = NetworkInterface.GetAllNetworkInterfaces()
@@ -581,24 +624,88 @@ namespace TrayPcInfo
                                 n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
                                 n.NetworkInterfaceType != NetworkInterfaceType.Tunnel);
 
+                PrimaryIpCandidate best = null;
                 foreach (var nic in nics)
                 {
                     var ipProps = nic.GetIPProperties();
-                    var addr = ipProps.UnicastAddresses
-                        .FirstOrDefault(u => u.Address.AddressFamily == AddressFamily.InterNetwork);
-                    if (addr != null)
-                        return addr.Address.ToString();
+                    var ipv4Addresses = ipProps.UnicastAddresses
+                        .Where(u => u.Address.AddressFamily == AddressFamily.InterNetwork)
+                        .ToArray();
+
+                    if (ipv4Addresses.Length == 0)
+                        continue;
+
+                    foreach (var addressInfo in ipv4Addresses)
+                    {
+                        var address = addressInfo.Address;
+                        if (address == null)
+                            continue;
+
+                        int score = ScorePrimaryIPv4Candidate(nic, ipProps, address);
+                        var candidate = new PrimaryIpCandidate(nic.Id, address.ToString(), score);
+                        if (best == null || candidate.Score > best.Score)
+                            best = candidate;
+                    }
                 }
+
+                return best;
             }
             catch (Exception ex)
             {
                 LogBuffer.Add("RETE", "Errore in GetPrimaryIPv4.", ex);
             }
+
             return null;
+        }
+
+        private static int ScorePrimaryIPv4Candidate(NetworkInterface nic, IPInterfaceProperties ipProps, IPAddress address)
+        {
+            int score = 0;
+            string addressText = address.ToString();
+            string searchableName = ((nic.Name ?? "") + " " + (nic.Description ?? "")).ToLowerInvariant();
+
+            if (!addressText.StartsWith("169.254.", StringComparison.Ordinal))
+                score += 100;
+
+            if (ipProps.GatewayAddresses != null && ipProps.GatewayAddresses.Any(g => g.Address != null && g.Address.AddressFamily == AddressFamily.InterNetwork))
+                score += 80;
+
+            if (ipProps.DnsAddresses != null && ipProps.DnsAddresses.Any(a => a.AddressFamily == AddressFamily.InterNetwork))
+                score += 20;
+
+            if (nic.Speed > 0)
+                score += 10;
+
+            switch (nic.NetworkInterfaceType)
+            {
+                case NetworkInterfaceType.Ethernet:
+                case NetworkInterfaceType.GigabitEthernet:
+                case NetworkInterfaceType.FastEthernetFx:
+                case NetworkInterfaceType.FastEthernetT:
+                case NetworkInterfaceType.Wireless80211:
+                    score += 40;
+                    break;
+                case NetworkInterfaceType.Ppp:
+                    score -= 10;
+                    break;
+            }
+
+            if (searchableName.Contains("virtual") ||
+                searchableName.Contains("vmware") ||
+                searchableName.Contains("hyper-v") ||
+                searchableName.Contains("virtualbox") ||
+                searchableName.Contains("vpn") ||
+                searchableName.Contains("tunnel"))
+            {
+                score -= 60;
+            }
+
+            return score;
         }
 
         private void LaunchQuickAssist()
         {
+            _lblStatus.Text = "Avvio Assistenza rapida...";
             ShowPopup("Avvio di Assistenza rapida...", 2000);
             bool started = false;
             try
@@ -633,6 +740,7 @@ namespace TrayPcInfo
                         try
                         {
                             Process.Start(new ProcessStartInfo(pathExe) { UseShellExecute = true });
+                            started = true;
                             ShowPopup("Assistenza rapida avviata.", 2000);
                         }
                         catch (Exception ex)
@@ -650,17 +758,24 @@ namespace TrayPcInfo
                     LogBuffer.Add("QUICKASSIST", "Errore ricerca quickassist.exe.", ex);
                 }
             }
-            else
+
+            if (started)
             {
-                ShowPopup("Assistenza rapida avviata.", 2000);
+                _lblStatus.Text = "Assistenza rapida avviata.";
+                return;
             }
+
+            string failureMessage = "Impossibile avviare Assistenza rapida.";
+            _lblStatus.Text = failureMessage;
+            ShowPopup(failureMessage, 2500);
+            LogBuffer.Add("QUICKASSIST", failureMessage, null);
         }
 
         private void ShowPopup(string text, int durationMs)
         {
             try
             {
-                _tray.BalloonTipTitle = "TrayPcInfo";
+                _tray.BalloonTipTitle = "OnlyTrayInfo";
                 _tray.BalloonTipText = text;
                 _tray.BalloonTipIcon = ToolTipIcon.Info;
                 _tray.ShowBalloonTip(durationMs);

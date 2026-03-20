@@ -1,12 +1,19 @@
+/*
+ * OnlyTrayInfo
+ * Copyright (c) 2026 Danny Perondi. All rights reserved.
+ * Proprietary and confidential.
+ * Unauthorized copying, modification, distribution, disclosure, or use is prohibited.
+ */
+
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("TrayPcInfo")]
+[assembly: AssemblyTitle("OnlyTrayInfo")]
 [assembly: AssemblyDescription("Windows system tray utility displaying system and network information")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("TrayPcInfo")]
-[assembly: AssemblyCopyright("Copyright © 2025")]
+[assembly: AssemblyCompany("Danny Perondi")]
+[assembly: AssemblyProduct("OnlyTrayInfo")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 Danny Perondi. All rights reserved.")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]

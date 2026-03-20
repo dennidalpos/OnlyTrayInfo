@@ -1,79 +1,98 @@
+#
+# OnlyTrayInfo
+# Copyright (c) 2026 Danny Perondi. All rights reserved.
+# Proprietary and confidential.
+# Unauthorized copying, modification, distribution, disclosure, or use is prohibited.
+#
+
 param(
-  [string]$ProjectName = "TrayPcInfo"
+  [string]$ProjectName = "OnlyTrayInfo"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $rootDir = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
-$projectDir = Join-Path $rootDir "src\TrayPcInfo"
+$projectDir = Join-Path $rootDir "src\OnlyTrayInfo"
 $buildDir = Join-Path $rootDir "build"
-$tempDir = Join-Path $rootDir "temp_build"
+$releaseDir = Join-Path $buildDir "Release"
+$tmpRootDir = Join-Path $rootDir "tmp"
+$tempDir = Join-Path $tmpRootDir "build"
+$tempProjectDir = Join-Path $tempDir "OnlyTrayInfo"
+$tempObjDir = Join-Path $tempDir "obj"
 
-New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+if (Test-Path $tempDir) {
+    Remove-Item -Path $tempDir -Recurse -Force
+}
+
+New-Item -ItemType Directory -Force -Path $tempProjectDir | Out-Null
+New-Item -ItemType Directory -Force -Path $tempObjDir | Out-Null
 
 $BaseVersion = '1.0'
 $BuildStamp = Get-Date -Format 'yyyyMMdd.HHmm'
 $FullVersion = "$BaseVersion.$BuildStamp"
 
-$assemblyInfoPath = Join-Path $projectDir "Properties\AssemblyInfo.cs"
+$assemblyInfoPath = Join-Path $tempProjectDir "Properties\AssemblyInfo.cs"
+$tempProjectFile = Join-Path $tempProjectDir "OnlyTrayInfo.csproj"
+
+Copy-Item -Path (Join-Path $projectDir "*") -Destination $tempProjectDir -Recurse -Force
+
 $assemblyInfoContent = Get-Content $assemblyInfoPath -Raw
 $assemblyInfoContent = $assemblyInfoContent -replace 'AssemblyInformationalVersion\(".*?"\)', "AssemblyInformationalVersion(`"$FullVersion`")"
-Set-Content -Path (Join-Path $tempDir "AssemblyInfo.cs") -Value $assemblyInfoContent -Encoding UTF8
+Set-Content -Path $assemblyInfoPath -Value $assemblyInfoContent -Encoding UTF8
 
-$programCsPath = Join-Path $projectDir "Program.cs"
-Copy-Item -Path $programCsPath -Destination (Join-Path $tempDir "Program.cs") -Force
-
-$csc = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
-if (-not (Test-Path $csc)) {
-    $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+$frameworkPath = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\"
+$msbuildExe = Join-Path $frameworkPath "MSBuild.exe"
+if (-not (Test-Path $msbuildExe)) {
+    $frameworkPath = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\"
+    $msbuildExe = Join-Path $frameworkPath "MSBuild.exe"
 }
-if (-not (Test-Path $csc)) {
-    throw "C# compiler (csc.exe) not found"
+if (-not (Test-Path $msbuildExe)) {
+    throw "MSBuild.exe for .NET Framework 4.0 not found"
 }
 
-$outputExe = Join-Path $tempDir "$ProjectName.exe"
-$assemblyInfoFile = Join-Path $tempDir "AssemblyInfo.cs"
-$programFile = Join-Path $tempDir "Program.cs"
-$manifestFile = Join-Path $projectDir "app.manifest"
+New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+$finalExe = Join-Path $releaseDir "$ProjectName.exe"
+if (Test-Path $finalExe) {
+    Remove-Item -Path $finalExe -Force
+}
 
-Write-Host ">> Building with csc.exe"
+Write-Host ">> Building with MSBuild.exe"
 Write-Host "   Version: $FullVersion"
 
-$cscArgs = @(
-    "/target:winexe",
-    "/out:$outputExe",
-    "/optimize+",
-    "/platform:anycpu",
-    "/reference:System.dll",
-    "/reference:System.Core.dll",
-    "/reference:System.Drawing.dll",
-    "/reference:System.Windows.Forms.dll",
-    "/win32manifest:$manifestFile",
+$msbuildArgs = @(
+    $tempProjectFile,
+    "/t:Build",
+    "/p:Configuration=Release",
+    "/p:Platform=AnyCPU",
+    "/p:OutDir=$releaseDir\",
+    "/p:BaseIntermediateOutputPath=$tempObjDir\",
+    "/p:IntermediateOutputPath=$tempObjDir\Release\",
+    "/p:FrameworkPathOverride=$frameworkPath",
     "/nologo",
-    "/nowarn:1701,1702",
-    $assemblyInfoFile,
-    $programFile
+    "/verbosity:minimal"
 )
 
-& $csc $cscArgs
+& $msbuildExe $msbuildArgs
 
 if ($LASTEXITCODE -ne 0) {
     throw "Build failed with code $LASTEXITCODE"
 }
 
-if (-not (Test-Path -Path $outputExe -PathType Leaf)) {
-    throw "Executable not generated: $outputExe"
+if (-not (Test-Path -Path $finalExe -PathType Leaf)) {
+    throw "Executable not generated: $finalExe"
 }
 
-New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
-$finalExe = Join-Path $buildDir "$ProjectName.exe"
-Copy-Item -Path $outputExe -Destination $finalExe -Force
-
 Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+if (Test-Path $tmpRootDir) {
+    $tmpEntries = Get-ChildItem -Path $tmpRootDir -Force -ErrorAction SilentlyContinue
+    if (($tmpEntries | Measure-Object).Count -eq 0) {
+        Remove-Item -Path $tmpRootDir -Force -ErrorAction SilentlyContinue
+    }
+}
 
 Write-Host ""
-Write-Host "✓ Build completed successfully!" -ForegroundColor Green
+Write-Host "Build completed successfully." -ForegroundColor Green
 Write-Host "   File: $finalExe" -ForegroundColor Cyan
 Write-Host "   Version: $FullVersion" -ForegroundColor Cyan
 $fileSize = (Get-Item $finalExe).Length / 1KB

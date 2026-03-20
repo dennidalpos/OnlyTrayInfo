@@ -1,3 +1,10 @@
+#
+# OnlyTrayInfo
+# Copyright (c) 2026 Danny Perondi. All rights reserved.
+# Proprietary and confidential.
+# Unauthorized copying, modification, distribution, disclosure, or use is prohibited.
+#
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -5,41 +12,47 @@ Write-Host "=== Cleaning Project ===" -ForegroundColor Cyan
 Write-Host ""
 
 $rootDir = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
-$buildPath = Join-Path $rootDir "build"
-$tempBuildPath = Join-Path $rootDir "temp_build"
-
 $itemsRemoved = 0
 
-if (Test-Path $buildPath) {
-    Write-Host "Found build folder: $buildPath" -ForegroundColor Yellow
+function Remove-GeneratedDirectory {
+    param(
+        [string]$Path,
+        [string]$Label,
+        [switch]$FailOnError
+    )
+
+    if (-not (Test-Path $Path)) {
+        Write-Host "$Label folder not found" -ForegroundColor Gray
+        return
+    }
+
+    Write-Host "Found $Label folder: $Path" -ForegroundColor Yellow
 
     try {
-        $fileCount = (Get-ChildItem -Path $buildPath -File -Recurse | Measure-Object).Count
-        Remove-Item -Path $buildPath -Recurse -Force
-        Write-Host "[OK] Build folder removed ($fileCount files)" -ForegroundColor Green
-        $itemsRemoved += $fileCount
+        $fileCount = (Get-ChildItem -Path $Path -File -Recurse -ErrorAction SilentlyContinue | Measure-Object).Count
+        Remove-Item -Path $Path -Recurse -Force
+        Write-Host "[OK] $Label folder removed ($fileCount files)" -ForegroundColor Green
+        $script:itemsRemoved += $fileCount
     }
     catch {
-        Write-Host "[ERROR] Cannot remove build folder: $_" -ForegroundColor Red
-        exit 1
+        Write-Host "[ERROR] Cannot remove $Label folder: $_" -ForegroundColor Red
+        if ($FailOnError) {
+            exit 1
+        }
     }
 }
-else {
-    Write-Host "Build folder not found" -ForegroundColor Gray
-}
 
-if (Test-Path $tempBuildPath) {
-    Write-Host "Found temp_build folder: $tempBuildPath" -ForegroundColor Yellow
+Remove-GeneratedDirectory -Path (Join-Path $rootDir "build") -Label "build" -FailOnError
+Remove-GeneratedDirectory -Path (Join-Path $rootDir "tmp") -Label "tmp"
+Remove-GeneratedDirectory -Path (Join-Path $rootDir "temp_build") -Label "temp_build"
 
-    try {
-        $fileCount = (Get-ChildItem -Path $tempBuildPath -File -Recurse | Measure-Object).Count
-        Remove-Item -Path $tempBuildPath -Recurse -Force
-        Write-Host "[OK] Temp build folder removed ($fileCount files)" -ForegroundColor Green
-        $itemsRemoved += $fileCount
+$artifactDirectories = Get-ChildItem -Path $rootDir -Directory -Recurse -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.Name -in @("bin", "obj") -and $_.FullName -notlike "*\.git\*"
     }
-    catch {
-        Write-Host "[ERROR] Cannot remove temp_build folder: $_" -ForegroundColor Red
-    }
+
+foreach ($directory in $artifactDirectories) {
+    Remove-GeneratedDirectory -Path $directory.FullName -Label $directory.Name
 }
 
 Write-Host ""
@@ -49,6 +62,7 @@ $tempFiles = @(
     "*.pdb",
     "*.exe.config",
     "*.cache",
+    "*.log",
     "*.suo",
     "*.user"
 )
