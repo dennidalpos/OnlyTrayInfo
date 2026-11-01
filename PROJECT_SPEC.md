@@ -26,4 +26,4 @@
 - Progetto destinato a Windows.
 - Dipendenza da WinForms, API di rete Windows e API di stampa Windows.
 - Target framework impostato a .NET Framework 4.0.
-- Lo stato del repository deve rimanere coerente tra codice, documentazione e `PROJECT_STATUS.json`.
+- Lo stato del repository deve rimanere coerente tra codice, documentazione e `02-areas/products/OnlyTrayInfo/tracker.json (nel dossier SecondBrain)`.
