@@ -1,182 +1,77 @@
 # OnlyTrayInfo
 
-OnlyTrayInfo e' una piccola applicazione WinForms che vive nell'area di notifica di Windows e mostra informazioni rapide sul PC (rete, stampanti, utente, ecc.). L'interfaccia principale offre un riepilogo dettagliato e alcune azioni rapide come l'avvio di **Assistenza rapida** e l'impostazione della stampante predefinita.
+Small WinForms app that lives in the Windows notification area and shows quick information about the PC: host, network, printers and user. The main window offers a detailed summary and a few quick actions such as launching **Quick Assist** and setting the default printer. The interface is in Italian.
 
-## Funzionalità principali
+## Features
 
-- **Tray icon** con tooltip dinamico (hostname + IP principale).
-- **Dashboard di sistema** con:
-  - hostname, utente e dominio DNS;
-  - elenco delle interfacce di rete con stato, velocità, MAC, IPv4, gateway e DNS;
-  - elenco delle stampanti installate con indicazione di quella predefinita;
-  - log errori interno.
-- **Assistenza rapida**: apertura di Quick Assist tramite protocollo `ms-quick-assist:` o eseguibile.
-- **Gestione stampanti**: selezione rapida e impostazione stampante predefinita.
-- **Avvio in tray**: la finestra resta nascosta e si riapre dal menu del tray.
+- **Tray icon** with a dynamic tooltip (hostname and primary IP address, limited to 63 characters by Windows).
+- **System dashboard**:
+  - hostname, user and DNS domain;
+  - network interfaces with status, speed, MAC, IPv4, gateway and DNS (loopback and tunnel adapters are filtered out);
+  - installed printers, with the default one marked;
+  - an internal in-memory error log shown in the "LOG ERRORI" section.
+- **Quick Assist**: opens Quick Assist through the `ms-quick-assist:` protocol, falling back to `quickassist.exe` in `%WINDIR%\System32`, `%WINDIR%\SysWOW64` and `PATH`.
+- **Printer management**: pick a printer from the list and set it as the system default.
+- **Start in tray**: the window stays hidden and reopens from the tray menu.
 
-## Requisiti
+## Requirements
 
-- **Windows** con supporto a WinForms.
-- **.NET Framework 4.0** (target del progetto).
-- Accesso alle API di rete e stampa di Windows (per la lettura di NIC e stampanti).
-
-## Setup
-
-1. Clona il repository su una macchina Windows.
-2. Apri PowerShell nella root del repository.
-3. Usa gli script in `scripts/` oppure Visual Studio/MSBuild per compilare il progetto.
-
-## Struttura del progetto
-
-```
-src/
-  OnlyTrayInfo/
-    Program.cs         # UI, logica principali e raccolta info di sistema
-    Properties/
-      AssemblyInfo.cs  # metadati assembly
-    OnlyTrayInfo.csproj  # progetto .NET Framework 4.0
-```
+- Windows with WinForms support.
+- .NET Framework 4.0 (project target).
+- Access to the Windows network and printing APIs.
 
 ## Build
 
-Il workflow del repository usa come output comune la cartella root `build/`:
+The repository writes build output to `build/Debug/` and `build/Release/`; `tmp/` holds temporary files removed by the scripts.
 
-- `build/Debug/` per build Debug eseguite tramite progetto/MSBuild
-- `build/Release/` per build Release
-- `tmp/` per file temporanei di compilazione rimossi dagli script
-
-### Script PowerShell del repository
 ```powershell
+# Build Release (build\Release\OnlyTrayInfo.exe, with a timestamped informational version)
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
-```
 
-Lo script genera `build\Release\OnlyTrayInfo.exe` e aggiorna la versione informativa con timestamp.
+# Smoke check: clean, build, and verify the executable's product metadata
+powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 
-Per pulire gli output generati:
-
-```powershell
+# Remove build/, tmp/, bin/ and obj/
 powershell -ExecutionPolicy Bypass -File .\scripts\clean.ps1
 ```
 
-Per eseguire una verifica minima ripetibile:
+With Visual Studio, open `src/OnlyTrayInfo/OnlyTrayInfo.csproj` and build. With MSBuild:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
-```
-
-Lo script esegue la build e verifica che `build\Release\OnlyTrayInfo.exe` esista
-e riporti metadata coerenti con il nome prodotto.
-
-### Visual Studio
-1. Apri `src/OnlyTrayInfo/OnlyTrayInfo.csproj`.
-2. Seleziona **Build > Build Solution**.
-3. Recupera gli output in `build\Debug\` o `build\Release\` in base alla configurazione scelta.
-
-### MSBuild (Developer Command Prompt)
 ```bat
 cd src\OnlyTrayInfo
 msbuild OnlyTrayInfo.csproj /p:Configuration=Release
 ```
 
-## Test
+There is no automated test suite; `verify.ps1` is the repeatable check. The repository defines no packaging or publish flow.
 
-Non e' presente una suite di test automatizzati. La verifica ripetibile disponibile e' lo smoke check:
+## Usage
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
-```
+1. Run `OnlyTrayInfo.exe` from `build\Release\`; it starts minimized in the tray.
+2. Double-click the icon or use the context menu **Apri** to show the window; **Esci** closes the app.
+3. In the window, **Assistenza rapida** starts Quick Assist, and the printer list with **Imposta predefinita** sets the default printer.
 
-Lo script esegue `clean`, `build` e controlla che l'eseguibile finale esponga metadata coerenti.
+## Troubleshooting
 
-## Esecuzione
+- **No IP or network information**: the network interface must be up; loopback and tunnel adapters are ignored.
+- **Cannot set the default printer**: check that the printer is installed correctly, that the app has the needed permissions and that the printer is selected in the list.
+- **Quick Assist does not open**: install or enable **Quick Assist** in Windows.
 
-1. Avvia `OnlyTrayInfo.exe` generato in `build\Release\`.
-2. L’app parte **minimizzata nel tray**.
-3. Doppio click o menu contestuale ➜ **Apri** per mostrare la finestra.
-4. **Esci** dal menu tray per chiudere l’app.
-
-## Uso dell’interfaccia
-
-### Barra strumenti
-- **Assistenza rapida**: avvia Quick Assist per supporto remoto.
-
-### Sezione stampanti
-- **Stampanti**: seleziona la stampante dalla lista.
-- **Imposta predefinita**: la imposta come stampante predefinita di sistema.
-
-### Pannello informazioni
-Mostra un riepilogo testuale con:
-- dati di sistema;
-- dati rete (una sezione per ogni NIC attiva);
-- elenco stampanti;
-- log errori (utile per diagnosi locali).
-
-## Risoluzione problemi
-
-### L’app non mostra l’IP o la rete
-Verifica che l’interfaccia di rete sia **Attiva**. L’app filtra le NIC **Loopback** e **Tunnel**.
-
-### Non si riesce a impostare la stampante predefinita
-Assicurati che:
-- la stampante sia installata correttamente;
-- l’app abbia i permessi necessari;
-- la stampante sia selezionata nella lista.
-
-### Quick Assist non si apre
-L’app prova prima il protocollo `ms-quick-assist:` e poi cerca `quickassist.exe` in:
-- `%WINDIR%\System32`
-- `%WINDIR%\SysWOW64`
-- `PATH`
-
-Se non è presente, installa/abilita **Assistenza rapida** in Windows.
-
-## Clean
-
-Per riportare il repository a uno stato sorgente-only compatibile con i file versionati:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\clean.ps1
-```
-
-Lo script rimuove `build/`, `tmp/` e gli eventuali artefatti `bin/` e `obj/`.
-
-## Publish
-
-Il repository non definisce al momento uno script o un flusso separato di packaging/publish.
-
-## Struttura essenziale
+## Project structure
 
 ```text
-/
-├── scripts/
-│   ├── build.ps1
-│   ├── clean.ps1
-│   └── verify.ps1
-└── src/
-    └── OnlyTrayInfo/
-        ├── OnlyTrayInfo.csproj
-        ├── Program.cs
-        ├── app.manifest
-        └── Properties/AssemblyInfo.cs
+scripts/
+  build.ps1  clean.ps1  verify.ps1
+src/OnlyTrayInfo/
+  OnlyTrayInfo.csproj   # .NET Framework 4.0 project
+  Program.cs            # UI, main logic and system information gathering
+  app.manifest
+  Properties/AssemblyInfo.cs
 ```
 
-## Note
+## Security
 
-- L’applicazione usa un **log interno in memoria** per gli errori più comuni, visibile nella sezione “LOG ERRORI”.
-- Il tooltip del tray è limitato a 63 caratteri (limite standard di Windows).
+The app only reads local system information and does not send data over the network. See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
-## Licenza
+## License
 
-Vedi [LICENSE](LICENSE).
-
-## Copyright
-
-Copyright (c) 2026 Danny Perondi. All rights reserved.
-
-Questo progetto e' proprietario e confidenziale. La consultazione del
-repository e' consentita solo per visione e valutazione da parte di soggetti
-autorizzati.
-
-Sono vietati senza preventiva autorizzazione scritta di Danny Perondi il
-riutilizzo, la copia, la modifica, la distribuzione, la sublicenza e qualsiasi
-uso commerciale, totale o parziale.
+Proprietary and confidential, all rights reserved. The repository may be viewed for evaluation by authorized parties only; reuse, copying, modification, distribution, sublicensing and commercial use require prior written permission. See [LICENSE](LICENSE). Copyright (c) 2026 Danny Perondi.
