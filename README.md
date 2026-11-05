@@ -22,16 +22,23 @@ Small WinForms app that lives in the Windows notification area and shows quick i
 
 ## Build
 
-The repository writes build output to `build/Debug/` and `build/Release/`; `tmp/` holds temporary files removed by the scripts.
+The project defaults to `build/Debug/` or `build/Release/`. For a direct build without invoking cleanup, use the installed Framework MSBuild:
+
+```powershell
+$msbuild = Join-Path $env:WINDIR 'Microsoft.NET/Framework/v4.0.30319/MSBuild.exe'
+& $msbuild src/OnlyTrayInfo/OnlyTrayInfo.csproj /p:Configuration=Release /nologo
+```
+
+For isolated agent checks, use a fresh central-runtime checkout and redirect `OutputPath`, `IntermediateOutputPath`, TEMP and TMP there. A direct build checks compilation; inspect output product metadata separately.
 
 ```powershell
 # Build Release (build\Release\OnlyTrayInfo.exe, with a timestamped informational version)
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Smoke check: clean, build, and verify the executable's product metadata
+# Destructive helper: calls clean before build; review scope before use
 powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 
-# Remove build/, tmp/, bin/ and obj/
+# Cleanup only after separately authorizing exact generated paths
 powershell -ExecutionPolicy Bypass -File .\scripts\clean.ps1
 ```
 
@@ -42,7 +49,7 @@ cd src\OnlyTrayInfo
 msbuild OnlyTrayInfo.csproj /p:Configuration=Release
 ```
 
-There is no automated test suite; `verify.ps1` is the repeatable check. The repository defines no packaging or publish flow.
+There is no unit-test suite. `verify.ps1` is a metadata smoke helper that calls cleanup; it does not qualify the tray UI, Quick Assist or printer behavior. Keep existing outputs, logs and evidence until their exact removal is authorized. No packaging/publish flow is defined. See the [English specification](PROJECT_SPEC.md).
 
 ## Usage
 
@@ -70,7 +77,7 @@ src/OnlyTrayInfo/
 
 ## Security
 
-The app only reads local system information and does not send data over the network. See [SECURITY.md](SECURITY.md) to report a vulnerability.
+The app reads local system information and explicitly changes the chosen default printer. Quick Assist is launched as a separate Windows application; its connections are outside this utility's local inventory workflow. See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## License
 

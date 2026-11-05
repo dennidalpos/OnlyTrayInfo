@@ -1,29 +1,21 @@
-# PROJECT_SPEC
+# Product specification
 
-## Obiettivi
+[Retained Italian source](PROJECT_SPEC.it.md)
 
-- Fornire una piccola utility Windows che vive nell'area di notifica.
-- Mostrare rapidamente informazioni di sistema utili all'utente locale.
-- Consentire l'avvio rapido di Assistenza rapida.
-- Consentire la visualizzazione delle stampanti installate e l'impostazione della stampante predefinita.
+OnlyTrayInfo is a small Windows notification-area utility for viewing local host, user/domain, network and printer information. It can launch Quick Assist and change the default printer through explicit UI actions.
 
-## Architettura
+## Architecture and behavior
 
-- Applicazione WinForms .NET Framework 4.0.
-- Un singolo progetto C# in `src/OnlyTrayInfo`.
-- `Program.cs` contiene bootstrap applicativo, form principale, raccolta dati di sistema e logica UI.
-- Gli script PowerShell in `scripts/` gestiscono build, pulizia e verifica degli output generati.
+The project targets .NET Framework 4.0/WinForms. src/OnlyTrayInfo contains one C# project. Program.cs includes bootstrap, main form, system-information collection and UI logic.
 
-## Comportamento Atteso
+Startup hides the window in the tray. Its tooltip contains hostname and primary IPv4, bounded to Windows' 63-character tooltip limit. The main window presents host/network/printer details and an in-memory error log. Users reopen it through the tray and explicitly choose Quick Assist or a default printer.
 
-- All'avvio l'applicazione parte minimizzata nel tray.
-- L'icona tray espone un tooltip con hostname e IPv4 principale.
-- La finestra principale mostra informazioni di sistema, rete, stampanti e log errori.
-- L'utente puo' riaprire la finestra dal tray, avviare Assistenza rapida e impostare una stampante predefinita.
+## Build and qualification boundaries
 
-## Vincoli
+scripts/build.ps1 builds a temporary copy with a timestamped informational version and writes build/Release. Its implementation removes temporary/generated files. verify.ps1 calls clean before build and checks product metadata; it is not a comprehensive automated UI/system test. No installer/publish pipeline is defined.
 
-- Progetto destinato a Windows.
-- Dipendenza da WinForms, API di rete Windows e API di stampa Windows.
-- Target framework impostato a .NET Framework 4.0.
-- Lo stato del repository deve rimanere coerente tra codice, documentazione e `02-areas/products/OnlyTrayInfo/tracker.json (nel dossier SecondBrain)`.
+Inspect and authorize the actual cleanup scope before running these scripts on an existing checkout. For non-destructive qualification, build a fresh runtime fixture directly with Framework MSBuild and redirect output/intermediates.
+
+The application reads Windows system/network APIs and can alter the selected default printer. Quick Assist is an external Windows application with separate behavior; launching it does not prove a remote support connection or that the target machine has it installed.
+
+Current source, checks and documentation must agree. Proposed tracker corrections remain in the dossier review; no task closes solely from a successful build.
