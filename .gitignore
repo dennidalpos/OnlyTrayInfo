@@ -1,0 +1,42 @@
+# Build, intermediate and publish outputs
+bin/
+obj/
+build/
+dist/
+out/
+publish/
+tmp/
+temp_build/
+
+# Generated files
+*.pdb
+*.exe.config
+*.cache
+*.log
+
+# Visual Studio and IDE
+.vs/
+.vscode/
+.idea/
+*.code-workspace
+*.vsidx
+*.vspscc
+*.vssscc
+*.vssettings
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Security files
+*.pfx
+*.p12
+*.cer
+*.key
+*_private.key
+certificate*
+*.snk
